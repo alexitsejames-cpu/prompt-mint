@@ -312,6 +312,31 @@ describe("unlock API integrity checks", () => {
     );
   });
 
+  it("refuses plaintext when ciphertext has been tampered with", async () => {
+    // Inject corrupted ciphertext: decryption succeeds but the resulting content
+    // hashes to something different from what was committed on-chain.
+    const { buyer, promptId, challenge, signedMessage } =
+      await setupUnlockFixture("Original prompt content.");
+
+    // Simulate storage-layer tampering: decryption returns garbage bytes
+    decryptPromptCiphertextMock.mockResolvedValue("�\x00TAMPERED\xFF");
+    // The hash of the tampered output won't match "a".repeat(64) stored on-chain
+    hashPromptPlaintextMock.mockResolvedValue("d".repeat(64));
+
+    const { statusCode, responseData } = await invokeUnlock({
+      token: challenge.token,
+      promptId,
+      address: buyer.publicKey(),
+      signedMessage,
+    });
+
+    expect(statusCode).toBe(200);
+    expect(responseData.plaintext).toBeUndefined();
+    expect(responseData.integrity.status).toBe("failed");
+    expect(responseData.integrity.computedHash).toBe("d".repeat(64));
+    expect(responseData.integrity.storedHash).toBe("a".repeat(64));
+  });
+
   it("does not expose decrypted content in generic error responses", async () => {
     const { buyer, promptId, challenge, signedMessage } =
       await setupUnlockFixture();

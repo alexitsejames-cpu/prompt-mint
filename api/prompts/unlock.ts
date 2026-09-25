@@ -504,6 +504,19 @@ async function handler(req: any, res: any) {
           storedHash: integrity.storedHash,
         }),
       ).catch(() => {});
+
+      res.status(200).json(
+        withVersion(
+          {
+            promptId: prompt.id.toString(),
+            title: prompt.title,
+            contentHash,
+            integrity,
+          },
+          version,
+        ),
+      );
+      return;
     }
 
     await recordSuccessfulAuth(unlockRequest.address, clientIp);
@@ -536,7 +549,7 @@ async function handler(req: any, res: any) {
           promptId: prompt.id.toString(),
           title: prompt.title,
           contentHash,
-          ...(integrity.status === "failed" ? {} : { plaintext }),
+          plaintext,
           integrity,
         },
         version,
